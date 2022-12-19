@@ -1,35 +1,23 @@
-use std::str::FromStr;
+use std::fmt::{Display, Formatter};
 use super::reader::Reader;
 
-const magic_bytes: [u8; 4] = [0x1b, 0x4c, 0x75, 0x61];
-const version: u8 = 0x53;
-const format: u8 = 0;
-const data2: [u8; 6] = [0x19, 0x93, 0x0D, 0x0A, 0x1A, 0x0A];
-const cint_size: u8 = 4;
-const csize_t_size: u8 = 8;
-const instruction_size: u8 = 4;
-const lua_integer_size: u8 = 8;
-const lua_number_size: u8 = 8;
-const lua_integer: i64 = 0x5678;
-const lua_number: f64 = 370.5;
+const T_NIL: u8 = 0;
+const T_BOOLEAN: u8 = 1;
+const T_NUMBER: u8 = 3;
+const T_SSTRING: u8 = 4;
+const T_INTEGER: u8 = 0x13;
+const T_LSTRING: u8 = 0x14;
 
-const t_nil: u8 = 0;
-const t_boolean: u8 = 1;
-const t_number: u8 = 3;
-const t_sstring: u8 = 4;
-const t_integer: u8 = 0x13;
-const t_lstring: u8 = 0x14;
-
-enum tag {
-    t_nil = 0,
-    t_boolean = 1,
-    t_number = 3,
-    t_sstring = 4,
-    t_integer = 0x13,
-    t_lstring = 0x14,
+enum Tag {
+    TNil = 0,
+    TBoolean = 1,
+    TNumber = 3,
+    TSstring = 4,
+    TInteger = 0x13,
+    TLstring = 0x14,
 }
 
-
+#[derive(PartialEq)]
 struct Header {
     signature: [u8; 4],
     version: u8,
@@ -60,24 +48,29 @@ impl Header {
             lua_number: 370.5,
         }
     }
+
+    pub fn new(signature: [u8; 4], version: u8, format: u8, luac_data: [u8; 6], cint_size: u8, size_t_size: u8, instruction_size: u8, integer_size: u8, number_size: u8, lua_integer: i64, lua_number: f64) -> Self {
+        Self { signature, version, format, luac_data, cint_size, size_t_size, instruction_size, integer_size, number_size, lua_integer, lua_number }
+    }
 }
 
 #[derive(Debug)]
 pub struct ProtoType {
     pub source: String,
-    pub lineDefined: u32,
-    pub lastLineDefined: u32,
-    pub numParams: u8,
-    pub isVarArg: u8,
-    pub StackSize: u8,
+    pub line_defined: u32,
+    pub last_line_defined: u32,
+    pub num_params: u8,
+    pub is_var_arg: u8,
+    pub stack_size: u8,
     pub code: Vec<u32>,
     pub constants: Vec<Constant>,
     pub upval: Vec<Upvalue>,
     pub protos: Vec<ProtoType>,
-    pub lineInfo: Vec<u32>,
-    pub locVars: Vec<LocVar>,
-    pub upvalueNames: Vec<String>,
+    pub line_info: Vec<u32>,
+    pub loc_vars: Vec<LocVar>,
+    pub upvalue_names: Vec<String>,
 }
+
 #[derive(Debug)]
 pub enum Constant {
     Nil,
@@ -89,10 +82,10 @@ pub enum Constant {
 }
 
 impl Constant {
-    pub(crate) fn ToString(&self) -> String {
+    pub(crate) fn to_str(&self) -> String {
         match self {
             Constant::Nil => "nil".to_string(),
-            Constant::Boolean(b) => if *b { "true".to_string()}else { "false".to_string() },
+            Constant::Boolean(b) => if *b { "true".to_string() } else { "false".to_string() },
             Constant::Number(n) => n.to_string(),
             Constant::Integer(i) => i.to_string(),
             Constant::SString(s) => s.to_string(),
@@ -103,114 +96,130 @@ impl Constant {
 
 #[derive(Debug)]
 pub struct Upvalue {
-    pub Instack: u8,
-    pub Idx: u8,
-}
-#[derive(Debug)]
-pub struct LocVar {
-    pub VarName: String,
-    pub StartPC: u32,
-    pub EndPC: u32,
+    pub instack: u8,
+    pub idx: u8,
 }
 
-pub fn dump(data: &[u8]) -> ProtoType{
+#[derive(Debug)]
+pub struct LocVar {
+    pub var_name: String,
+    pub start_pc: u32,
+    pub end_pc: u32,
+}
+
+pub fn dump(data: &[u8]) -> Option<ProtoType> {
     let mut reader = Reader::new(data);
-    reader.read_header();
-    reader.read_byte();
-    reader.read_proto("")
+    if reader.read_header() {
+        reader.read_byte();
+        return Some(reader.read_proto(""));
+    }
+    None
 }
 
 impl<'a> Reader<'a> {
-
     pub fn read_header(&mut self) -> bool {
-        if self.read_bytes(4) != magic_bytes {
-            println!("magic_bytes not matched!");
-            return false;
-        }
-        if self.read_byte() != version {
-            println!("version not matched!");
-            return false;
-        }
-        if self.read_byte() != format {
-            println!("format not matched!");
-            return false;
-        }
-        if self.read_bytes(6) != data2 {
-            println!("data2 not matched!");
-            return false;
-        }
-        if self.read_byte() != cint_size {
-            println!("cint_size not matched!");
-            return false;
-        }
-        if self.read_byte() != csize_t_size {
-            println!("csize_t_size not matched!");
-            return false;
-        }
-        if self.read_byte() != instruction_size {
-            println!("instruction_size not matched!");
-            return false;
-        }
-        if self.read_byte() != lua_integer_size {
-            println!("lua_integer_size not matched!");
-            return false;
-        }
-        if self.read_byte() != lua_number_size {
-            println!("lua_number_size not matched!");
-            return false;
-        }
-        if self.read_i64() != lua_integer {
-            println!("lua_magic_num not matched!");
-            return false;
-        }
-        if self.read_f64() != lua_number {
-            println!("lua_magic_float not matched!");
-            return false;
-        }
-        println!("parse head succ!");
-        true
+        let header = Header::new(
+            self.read_4(),
+            self.read_byte(),
+            self.read_byte(),
+            self.read_6(),
+            self.read_byte(),
+            self.read_byte(),
+            self.read_byte(),
+            self.read_byte(),
+            self.read_byte(),
+            self.read_i64(),
+            self.read_f64(),
+        );
+        // if self.read_bytes(4) != MAGIC_BYTES {
+        //     println!("MAGIC_BYTES not matched!");
+        //     return false;
+        // }
+        // if self.read_byte() != VERSION {
+        //     println!("VERSION not matched!");
+        //     return false;
+        // }
+        // if self.read_byte() != FORMAT {
+        //     println!("FORMAT not matched!");
+        //     return false;
+        // }
+        // if self.read_bytes(6) != LUAC_DATA {
+        //     println!("LUAC_DATA not matched!");
+        //     return false;
+        // }
+        // if self.read_byte() != CINT_SIZE {
+        //     println!("CINT_SIZE not matched!");
+        //     return false;
+        // }
+        // if self.read_byte() != CSIZE_T_SIZE {
+        //     println!("CSIZE_T_SIZE not matched!");
+        //     return false;
+        // }
+        // if self.read_byte() != INSTRUCTION_SIZE {
+        //     println!("INSTRUCTION_SIZE not matched!");
+        //     return false;
+        // }
+        // if self.read_byte() != LUA_INTEGER_SIZE {
+        //     println!("LUA_INTEGER_SIZE not matched!");
+        //     return false;
+        // }
+        // if self.read_byte() != LUA_NUMBER_SIZE {
+        //     println!("LUA_NUMBER_SIZE not matched!");
+        //     return false;
+        // }
+        // if self.read_i64() != LUA_INTEGER {
+        //     println!("LUA_INTEGER not matched!");
+        //     return false;
+        // }
+        // if self.read_f64() != LUA_NUMBER {
+        //     println!("LUA_NUMBER not matched!");
+        //     return false;
+        // }
+        // println!("parse head succ!");
+        let def = Header::new_default();
+        def.eq(&header)
+        // true
     }
-
 
 
     fn read_code(&mut self) -> Vec<u32> {
         let mut vec = vec![];
         let len = self.read_u32();
-        for i in 0..len {
+        for _i in 0..len {
             vec.push(self.read_u32());
         }
         vec
     }
 
-    fn read_tag(&mut self) -> tag {
+    fn read_tag(&mut self) -> Tag {
         match self.read_byte() {
-            t_boolean => tag::t_boolean,
-            t_number => tag::t_number,
-            t_sstring => tag::t_sstring,
-            t_integer => tag::t_integer,
-            t_lstring => tag::t_lstring,
-            _ => tag::t_nil,
+            T_BOOLEAN => Tag::TBoolean,
+            T_NUMBER => Tag::TNumber,
+            T_SSTRING => Tag::TSstring,
+            T_INTEGER => Tag::TInteger,
+            T_LSTRING => Tag::TLstring,
+            _ => Tag::TNil,
         }
     }
 
     fn read_constant(&mut self) -> Constant {
         match self.read_tag() {
-            tag::t_nil => Constant::Nil,
-            tag::t_boolean =>Constant::Boolean(self.read_byte() != 0),
-            tag::t_number => Constant::Number(self.read_f64()),
-            tag::t_sstring => Constant::SString(self.read_str()),
-            tag::t_integer => Constant::Integer(self.read_i64()),
-            tag::t_lstring => Constant::LString(self.read_str()),
+            Tag::TNil => Constant::Nil,
+            Tag::TBoolean => Constant::Boolean(self.read_byte() != 0),
+            Tag::TNumber => Constant::Number(self.read_f64()),
+            Tag::TSstring => Constant::SString(self.read_string()),
+            Tag::TInteger => Constant::Integer(self.read_i64()),
+            Tag::TLstring => Constant::LString(self.read_string()),
         }
     }
 
     fn read_upvalue(&mut self) -> Vec<Upvalue> {
         let len = self.read_u32();
         let mut vec = vec![];
-        for i in 0..len {
-            vec.push(Upvalue{
-                Instack:self.read_byte(),
-                Idx:self.read_byte(),
+        for _i in 0..len {
+            vec.push(Upvalue {
+                instack: self.read_byte(),
+                idx: self.read_byte(),
             })
         }
         vec
@@ -218,7 +227,7 @@ impl<'a> Reader<'a> {
     fn read_line_info(&mut self) -> Vec<u32> {
         let len = self.read_u32();
         let mut vec = vec![];
-        for i in 0..len {
+        for _i in 0..len {
             vec.push(self.read_u32())
         }
         vec
@@ -226,11 +235,11 @@ impl<'a> Reader<'a> {
     fn read_local_vars(&mut self) -> Vec<LocVar> {
         let len = self.read_u32();
         let mut vec = vec![];
-        for i in 0..len {
-            vec.push(LocVar{
-                VarName:self.read_str(),
-                StartPC:self.read_u32(),
-                EndPC:self.read_u32(),
+        for _i in 0..len {
+            vec.push(LocVar {
+                var_name: self.read_string(),
+                start_pc: self.read_u32(),
+                end_pc: self.read_u32(),
             })
         }
         vec
@@ -238,65 +247,63 @@ impl<'a> Reader<'a> {
     fn read_upvalue_names(&mut self) -> Vec<String> {
         let len = self.read_u32();
         let mut vec = vec![];
-        for i in 0..len {
-            vec.push(self.read_str())
+        for _i in 0..len {
+            vec.push(self.read_string())
         }
         vec
     }
     fn read_constans(&mut self) -> Vec<Constant> {
         let len = self.read_u32();
         let mut vec = vec![];
-        for i in 0..len {
+        for _i in 0..len {
             vec.push(self.read_constant())
         }
         vec
     }
 
-    fn read_protos(&mut self,parentSource:&str) -> Vec<ProtoType> {
-        self.truncate();
+    fn read_protos(&mut self, parent_source: &str) -> Vec<ProtoType> {
         let len = self.read_u32();
         let mut vec = vec![];
-        for i in 0..len {
-            vec.push(self.read_proto(parentSource))
+        for _i in 0..len {
+            vec.push(self.read_proto(parent_source))
         }
         vec
     }
 
-    fn read_proto(&mut self,parentSource:&str) -> ProtoType {
-        let mut source = self.read_str();
+    fn read_proto(&mut self, parent_source: &str) -> ProtoType {
+        let mut source = self.read_string();
         if source.as_str() == "" {
-            source = parentSource.to_string()   ;
+            source = parent_source.to_string();
         }
         // ProtoType{
-            let a1 = source;
-            let a2 =  self.read_u32();
-            let a3 =  self.read_u32();
-            let a4 =  self.read_byte();
-            let a5 =  self.read_byte();
-            let a6 = self.read_byte();
-            let a7 =  self.read_code();
-            let a8 =  self.read_constans();
-            let a9 =  self.read_upvalue();
-            let a10 =  self.read_protos(parentSource);
-            let a11 = self.read_line_info();
-            let a12 =  self.read_local_vars();
-            let a13 =  self.read_upvalue_names();
+        let a1 = source;
+        let a2 = self.read_u32();
+        let a3 = self.read_u32();
+        let a4 = self.read_byte();
+        let a5 = self.read_byte();
+        let a6 = self.read_byte();
+        let a7 = self.read_code();
+        let a8 = self.read_constans();
+        let a9 = self.read_upvalue();
+        let a10 = self.read_protos(parent_source);
+        let a11 = self.read_line_info();
+        let a12 = self.read_local_vars();
+        let a13 = self.read_upvalue_names();
         // }
-        ProtoType{
-            source:a1 ,
-            lineDefined:a2 ,
-            lastLineDefined:a3 ,
-            numParams:a4 ,
-            isVarArg:a5 ,
-            StackSize:a6 ,
-            code:a7 ,
-            constants: a8 ,
-            upval: a9 ,
+        ProtoType {
+            source: a1,
+            line_defined: a2,
+            last_line_defined: a3,
+            num_params: a4,
+            is_var_arg: a5,
+            stack_size: a6,
+            code: a7,
+            constants: a8,
+            upval: a9,
             protos: a10,
-            lineInfo: a11,
-            locVars: a12,
-            upvalueNames: a13,
+            line_info: a11,
+            loc_vars: a12,
+            upvalue_names: a13,
         }
-
     }
 }
