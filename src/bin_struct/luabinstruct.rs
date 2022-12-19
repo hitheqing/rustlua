@@ -1,5 +1,5 @@
-use std::fmt::{Display, Formatter};
 use super::reader::Reader;
+use std::fmt::{Display, Formatter};
 
 const T_NIL: u8 = 0;
 const T_BOOLEAN: u8 = 1;
@@ -9,12 +9,12 @@ const T_INTEGER: u8 = 0x13;
 const T_LSTRING: u8 = 0x14;
 
 enum Tag {
-    TNil = 0,
-    TBoolean = 1,
-    TNumber = 3,
-    TSstring = 4,
-    TInteger = 0x13,
-    TLstring = 0x14,
+    Nil = 0,
+    Boolean = 1,
+    Number = 3,
+    ShortString = 4,
+    Integer = 0x13,
+    LongString = 0x14,
 }
 
 #[derive(PartialEq)]
@@ -49,8 +49,32 @@ impl Header {
         }
     }
 
-    pub fn new(signature: [u8; 4], version: u8, format: u8, luac_data: [u8; 6], cint_size: u8, size_t_size: u8, instruction_size: u8, integer_size: u8, number_size: u8, lua_integer: i64, lua_number: f64) -> Self {
-        Self { signature, version, format, luac_data, cint_size, size_t_size, instruction_size, integer_size, number_size, lua_integer, lua_number }
+    pub fn new(
+        signature: [u8; 4],
+        version: u8,
+        format: u8,
+        luac_data: [u8; 6],
+        cint_size: u8,
+        size_t_size: u8,
+        instruction_size: u8,
+        integer_size: u8,
+        number_size: u8,
+        lua_integer: i64,
+        lua_number: f64,
+    ) -> Self {
+        Self {
+            signature,
+            version,
+            format,
+            luac_data,
+            cint_size,
+            size_t_size,
+            instruction_size,
+            integer_size,
+            number_size,
+            lua_integer,
+            lua_number,
+        }
     }
 }
 
@@ -85,7 +109,13 @@ impl Constant {
     pub(crate) fn to_str(&self) -> String {
         match self {
             Constant::Nil => "nil".to_string(),
-            Constant::Boolean(b) => if *b { "true".to_string() } else { "false".to_string() },
+            Constant::Boolean(b) => {
+                if *b {
+                    "true".to_string()
+                } else {
+                    "false".to_string()
+                }
+            }
             Constant::Number(n) => n.to_string(),
             Constant::Integer(i) => i.to_string(),
             Constant::SString(s) => s.to_string(),
@@ -131,56 +161,10 @@ impl<'a> Reader<'a> {
             self.read_i64(),
             self.read_f64(),
         );
-        // if self.read_bytes(4) != MAGIC_BYTES {
-        //     println!("MAGIC_BYTES not matched!");
-        //     return false;
-        // }
-        // if self.read_byte() != VERSION {
-        //     println!("VERSION not matched!");
-        //     return false;
-        // }
-        // if self.read_byte() != FORMAT {
-        //     println!("FORMAT not matched!");
-        //     return false;
-        // }
-        // if self.read_bytes(6) != LUAC_DATA {
-        //     println!("LUAC_DATA not matched!");
-        //     return false;
-        // }
-        // if self.read_byte() != CINT_SIZE {
-        //     println!("CINT_SIZE not matched!");
-        //     return false;
-        // }
-        // if self.read_byte() != CSIZE_T_SIZE {
-        //     println!("CSIZE_T_SIZE not matched!");
-        //     return false;
-        // }
-        // if self.read_byte() != INSTRUCTION_SIZE {
-        //     println!("INSTRUCTION_SIZE not matched!");
-        //     return false;
-        // }
-        // if self.read_byte() != LUA_INTEGER_SIZE {
-        //     println!("LUA_INTEGER_SIZE not matched!");
-        //     return false;
-        // }
-        // if self.read_byte() != LUA_NUMBER_SIZE {
-        //     println!("LUA_NUMBER_SIZE not matched!");
-        //     return false;
-        // }
-        // if self.read_i64() != LUA_INTEGER {
-        //     println!("LUA_INTEGER not matched!");
-        //     return false;
-        // }
-        // if self.read_f64() != LUA_NUMBER {
-        //     println!("LUA_NUMBER not matched!");
-        //     return false;
-        // }
-        // println!("parse head succ!");
+
         let def = Header::new_default();
         def.eq(&header)
-        // true
     }
-
 
     fn read_code(&mut self) -> Vec<u32> {
         let mut vec = vec![];
@@ -193,23 +177,23 @@ impl<'a> Reader<'a> {
 
     fn read_tag(&mut self) -> Tag {
         match self.read_byte() {
-            T_BOOLEAN => Tag::TBoolean,
-            T_NUMBER => Tag::TNumber,
-            T_SSTRING => Tag::TSstring,
-            T_INTEGER => Tag::TInteger,
-            T_LSTRING => Tag::TLstring,
-            _ => Tag::TNil,
+            T_BOOLEAN => Tag::Boolean,
+            T_NUMBER => Tag::Number,
+            T_SSTRING => Tag::ShortString,
+            T_INTEGER => Tag::Integer,
+            T_LSTRING => Tag::LongString,
+            _ => Tag::Nil,
         }
     }
 
     fn read_constant(&mut self) -> Constant {
         match self.read_tag() {
-            Tag::TNil => Constant::Nil,
-            Tag::TBoolean => Constant::Boolean(self.read_byte() != 0),
-            Tag::TNumber => Constant::Number(self.read_f64()),
-            Tag::TSstring => Constant::SString(self.read_string()),
-            Tag::TInteger => Constant::Integer(self.read_i64()),
-            Tag::TLstring => Constant::LString(self.read_string()),
+            Tag::Nil => Constant::Nil,
+            Tag::Boolean => Constant::Boolean(self.read_byte() != 0),
+            Tag::Number => Constant::Number(self.read_f64()),
+            Tag::ShortString => Constant::SString(self.read_string()),
+            Tag::Integer => Constant::Integer(self.read_i64()),
+            Tag::LongString => Constant::LString(self.read_string()),
         }
     }
 

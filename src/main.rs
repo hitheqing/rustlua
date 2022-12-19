@@ -35,23 +35,11 @@ fn print_details(p: &ProtoType) {
     }
     println!("locals ({})", p.loc_vars.len());
     for (i, x) in p.loc_vars.iter().enumerate() {
-        println!(
-            "\t{}\t{}\t{}\t{}",
-            i + 1,
-            x.var_name,
-            x.start_pc + 1,
-            x.end_pc + 1
-        );
+        println!("\t{}\t{}\t{}\t{}", i + 1, x.var_name, x.start_pc + 1, x.end_pc + 1);
     }
     println!("upvalues ({})", p.upval.len());
     for (i, x) in p.upval.iter().enumerate() {
-        println!(
-            "\t{}\t{}\t{}\t{}",
-            i + 1,
-            p.upvalue_names[i],
-            x.instack,
-            x.idx
-        );
+        println!("\t{}\t{}\t{}\t{}", i + 1, p.upvalue_names[i], x.instack, x.idx);
     }
 }
 
@@ -75,22 +63,6 @@ fn print_header(p: &ProtoType) {
     if p.is_var_arg > 0 {
         var_arg_flag = "+";
     }
-    println!(
-        "\n{} <{}:{},{}> ({} instructions)",
-        name,
-        p.source,
-        p.line_defined,
-        p.last_line_defined,
-        p.code.len()
-    );
-    println!(
-        "{}{} params, {} slots, {} upvalues, {} locals,{} constants, {} functions",
-        p.num_params,
-        var_arg_flag,
-        p.stack_size,
-        p.upval.len(),
-        p.loc_vars.len(),
-        p.constants.len(),
-        p.protos.len()
-    );
+    println!("\n{} <{}:{},{}> ({} instructions)", name, p.source, p.line_defined, p.last_line_defined, p.code.len());
+    println!("{}{} params, {} slots, {} upvalues, {} locals,{} constants, {} functions", p.num_params, var_arg_flag, p.stack_size, p.upval.len(), p.loc_vars.len(), p.constants.len(), p.protos.len());
 }

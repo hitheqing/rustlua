@@ -1,2 +1,2 @@
 pub mod luabinstruct;
-pub mod reader;
+mod reader;

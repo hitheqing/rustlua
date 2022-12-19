@@ -3,7 +3,7 @@ pub struct Reader<'a> {
     pos: usize,
 }
 
-
+#[allow(dead_code)]
 impl<'a> Reader<'a> {
     pub fn new(data: &'a [u8]) -> Self {
         Self { data, pos: 0 }
