@@ -1,1 +1,2 @@
-mod opcodes;
+pub mod opcodes;
+pub mod instruction;

@@ -80,17 +80,17 @@ impl Header {
 }
 
 #[derive(Debug)]
-pub struct ProtoType {
-    pub source: String,
+pub struct Prototype {
+    pub source: Option<String>,
     pub line_defined: u32,
     pub last_line_defined: u32,
     pub num_params: u8,
-    pub is_var_arg: u8,
-    pub stack_size: u8,
+    pub is_vararg: u8,
+    pub max_stack_size: u8,
     pub code: Vec<u32>,
     pub constants: Vec<Constant>,
-    pub upval: Vec<Upvalue>,
-    pub protos: Vec<ProtoType>,
+    pub upvalues: Vec<Upvalue>,
+    pub protos: Vec<Prototype>,
     pub line_info: Vec<u32>,
     pub loc_vars: Vec<LocVar>,
     pub upvalue_names: Vec<String>,
@@ -102,8 +102,7 @@ pub enum Constant {
     Boolean(bool),
     Number(f64),
     Integer(i64),
-    SString(String),
-    LString(String),
+    Str(String),
 }
 
 impl Constant {
@@ -119,8 +118,7 @@ impl Constant {
             }
             Constant::Number(n) => n.to_string(),
             Constant::Integer(i) => i.to_string(),
-            Constant::SString(s) => s.to_string(),
-            Constant::LString(s) => s.to_string(),
+            Constant::Str(s) => s.to_string(),
         }
     }
 }
@@ -138,7 +136,7 @@ pub struct LocVar {
     pub end_pc: u32,
 }
 
-pub fn dump(data: &[u8]) -> Option<ProtoType> {
+pub fn dump(data: &[u8]) -> Option<Prototype> {
     let mut reader = Reader::new(data);
     if reader.read_header() {
         reader.read_byte();
@@ -192,9 +190,8 @@ impl<'a> Reader<'a> {
             Tag::Nil => Constant::Nil,
             Tag::Boolean => Constant::Boolean(self.read_byte() != 0),
             Tag::Number => Constant::Number(self.read_f64()),
-            Tag::ShortString => Constant::SString(self.read_string()),
+            Tag::ShortString|Tag::LongString => Constant::Str(self.read_string()),
             Tag::Integer => Constant::Integer(self.read_i64()),
-            Tag::LongString => Constant::LString(self.read_string()),
         }
     }
 
@@ -246,7 +243,7 @@ impl<'a> Reader<'a> {
         vec
     }
 
-    fn read_protos(&mut self, parent_source: &str) -> Vec<ProtoType> {
+    fn read_protos(&mut self, parent_source: &str) -> Vec<Prototype> {
         let len = self.read_u32();
         let mut vec = vec![];
         for _i in 0..len {
@@ -255,7 +252,7 @@ impl<'a> Reader<'a> {
         vec
     }
 
-    fn read_proto(&mut self, parent_source: &str) -> ProtoType {
+    fn read_proto(&mut self, parent_source: &str) -> Prototype {
         let mut source = self.read_string();
         if source.as_str() == "" {
             source = parent_source.to_string();
@@ -275,16 +272,16 @@ impl<'a> Reader<'a> {
         let a12 = self.read_local_vars();
         let a13 = self.read_upvalue_names();
         // }
-        ProtoType {
-            source: a1,
+        Prototype {
+            source: Some(a1),
             line_defined: a2,
             last_line_defined: a3,
             num_params: a4,
-            is_var_arg: a5,
-            stack_size: a6,
+            is_vararg: a5,
+            max_stack_size: a6,
             code: a7,
             constants: a8,
-            upval: a9,
+            upvalues: a9,
             protos: a10,
             line_info: a11,
             loc_vars: a12,
