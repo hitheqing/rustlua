@@ -6,6 +6,7 @@ use std::io::Read;
 use crate::bin_struct::luabinstruct::{dump, ProtoType};
 
 mod bin_struct;
+mod vm;
 
 fn main() {
     let mut f = File::open("luac.out").unwrap();

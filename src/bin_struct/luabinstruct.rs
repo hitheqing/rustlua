@@ -1,5 +1,6 @@
-use super::reader::Reader;
 use std::fmt::{Display, Formatter};
+
+use super::reader::Reader;
 
 const T_NIL: u8 = 0;
 const T_BOOLEAN: u8 = 1;
