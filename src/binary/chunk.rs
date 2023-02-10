@@ -252,7 +252,7 @@ impl<'a> Reader<'a> {
         vec
     }
 
-    fn read_proto(&mut self, parent_source: &str) -> Prototype {
+    pub fn read_proto(&mut self, parent_source: &str) -> Prototype {
         let mut source = self.read_string();
         if source.as_str() == "" {
             source = parent_source.to_string();

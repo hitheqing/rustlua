@@ -5,8 +5,9 @@ mod arith_ops;
 mod math;
 mod cmp_ops;
 
+use crate::binary::chunk::Prototype;
 pub use self::lua_state::LuaState;
 
-pub fn new_lua_state() -> LuaState {
-    LuaState::new()
+pub fn new_lua_state(stack_size:usize, proto: Prototype) -> LuaState {
+    LuaState::new(stack_size, proto)
 }
