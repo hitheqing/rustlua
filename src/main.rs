@@ -6,23 +6,22 @@ use crate::state::LuaState;
 fn main() {
     let mut ls = state::new_lua_state();
 
-    ls.push_boolean(true);
+    ls.push_integer(1);
+    ls.push_string("2.0".to_string());
+    ls.push_string("3.0".to_string());
+    ls.push_number(4.0);
     print_stack(&ls);
-    ls.push_integer(10);
+
+    ls.arith(LUA_OPADD);
     print_stack(&ls);
-    ls.push_nil();
+    ls.arith(LUA_OPBNOT);
     print_stack(&ls);
-    ls.push_string("hello".to_string());
+    ls.len(2);
     print_stack(&ls);
-    ls.push_value(-4);
+    ls.concat(3);
     print_stack(&ls);
-    ls.replace(3);
-    print_stack(&ls);
-    ls.set_top(6);
-    print_stack(&ls);
-    ls.remove(-3);
-    print_stack(&ls);
-    ls.set_top(-5);
+    let x = ls.compare(1, 2, LUA_OPEQ);
+    ls.push_boolean(x);
     print_stack(&ls);
 }
 
