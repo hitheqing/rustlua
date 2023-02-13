@@ -12,7 +12,7 @@ pub struct LuaState {
 }
 
 impl LuaState {
-    pub fn new(stack_size:usize, proto: Prototype,) -> LuaState {
+    pub fn new(stack_size: usize, proto: Prototype) -> LuaState {
         LuaState {
             stack: LuaStack::new(stack_size),
             proto,
@@ -27,12 +27,12 @@ impl LuaVM for LuaState {
     }
 
     fn add_pc(&mut self, n: isize) {
-        self.pc+=n;
+        self.pc += n;
     }
 
     fn fetch(&mut self) -> u32 {
         let instruction = self.proto.code[self.pc as usize];
-        self.pc+=1;
+        self.pc += 1;
         instruction
     }
 
@@ -43,11 +43,10 @@ impl LuaVM for LuaState {
             Constant::Boolean(b) => LuaValue::Boolean(*b),
             Constant::Number(f) => LuaValue::Number(*f),
             Constant::Integer(i) => LuaValue::Integer(*i),
-            Constant::Str(s) => LuaValue::Str((*s).clone())
+            Constant::Str(s) => LuaValue::Str((*s).clone()),
         };
         self.stack.push(val);
     }
-
 
     fn get_rk(&mut self, rk: isize) {
         // iABC中的 opArgK 共9bit。如果最高位1，那么去掉最高位得到常量表索引。
@@ -309,12 +308,14 @@ impl LuaAPI for LuaState {
 
     fn len(&mut self, idx: isize) {
         let val = self.stack.get(idx);
-        if let LuaValue::Str(s) = val {
-            self.stack.push(LuaValue::Integer(s.len() as i64));
-        } else {
-            // todo：目前仅对字符串取长度。后面完善table再改
-            panic!("length error!")
-        }
+        let _len = match val {
+            LuaValue::Str(s) => s.len(),
+            LuaValue::Table(t) => t.borrow().len(),
+            _ => {
+                panic!("len error! 目前仅支持string 和 table的len方法")
+            }
+        };
+        self.stack.push(LuaValue::Integer(_len as i64))
     }
 
     fn concat(&mut self, n: isize) {
@@ -330,11 +331,97 @@ impl LuaAPI for LuaState {
                     self.stack.pop();
                     self.stack.push(LuaValue::Str(s1));
                 } else {
-                    // todo：目前仅连接字符串类型。后面再完善
-                    panic!("concatenation error!");
+                    panic!("concat error! 目前仅连接字符串类型。后面再完善");
                 }
             }
         }
         // n == 1, do nothing
+    }
+
+    /// https://www.lua.org/manual/5.3/manual.html#lua_newtable
+    /// - ```-0, +1, m```
+    fn new_table(&mut self) {
+        self.create_table(0,0)
+    }
+
+    fn create_table(&mut self, narr: usize, nrec: usize) {
+        self.stack.push(LuaValue::new_table(narr,nrec));
+    }
+
+    /// https://www.lua.org/manual/5.3/manual.html#lua_gettable
+    /// - ```[-1,+1,e]```
+    fn get_table(&mut self, idx: isize) -> i8 {
+        let t = self.stack.get(idx);
+        let k = self.stack.pop();
+        self.get_table_impl(&t, &k)
+    }
+
+    /// https://www.lua.org/manual/5.3/manual.html#lua_getfield
+    /// - ```[-0,+1,e]```
+    /// - ```push t[k]```
+    fn get_field(&mut self, idx: isize, k: &str) -> i8 {
+        let t = self.stack.get(idx);
+        let k = LuaValue::Str(k.to_string()); // TODO
+        self.get_table_impl(&t, &k)
+    }
+
+    /// https://www.lua.org/manual/5.3/manual.html#lua_geti
+    /// - ```[-0,+1,e]```
+    /// - ```push t[i]```
+    fn get_i(&mut self, idx: isize, i: i64) -> i8 {
+        let t = self.stack.get(idx);
+        let k = LuaValue::Integer(i);
+        self.get_table_impl(&t, &k)
+    }
+
+    /// https://www.lua.org/manual/5.3/manual.html#lua_settable
+    /// - ```[-2,+0,e]```
+    /// - ```t[k] = v```
+    fn set_table(&mut self, idx: isize) {
+        let t = self.stack.get(idx);
+        let v = self.stack.pop();
+        let k = self.stack.pop();
+        LuaState:: set_table_impl(&t,k,v);
+    }
+
+    /// https://www.lua.org/manual/5.3/manual.html#lua_setfield
+    /// - ```[-1,+0,e]```
+    /// - ```t[k] = v```
+    fn set_field(&mut self, idx: isize, k: &str) {
+        let t = self.stack.get(idx);
+        let v = self.stack.pop();
+        let k = LuaValue::Str(k.to_string()); // TODO
+        LuaState:: set_table_impl(&t,k,v);
+    }
+
+    /// https://www.lua.org/manual/5.3/manual.html#lua_seti
+    /// - ```[-1,+0,e]```
+    /// - ```t[k] = v```
+    fn set_i(&mut self, idx: isize, i: i64) {
+        let t = self.stack.get(idx);
+        let v = self.stack.pop();
+        let k = LuaValue::Integer(i);
+        LuaState::set_table_impl(&t, k, v);
+    }
+}
+
+impl LuaState {
+    fn get_table_impl(&mut self, t: &LuaValue, k: &LuaValue) -> i8 {
+        if let LuaValue::Table(tbl) = t {
+            let v = tbl.borrow().get(k);
+            let type_id = v.type_id();
+            self.stack.push(v);
+            type_id
+        } else {
+            panic!("not a table!") // todo
+        }
+    }
+
+    fn set_table_impl(t: &LuaValue, k: LuaValue, v: LuaValue) {
+        if let LuaValue::Table(tbl) = t {
+            tbl.borrow_mut().put(k, v);
+        } else {
+            panic!("not a table!");
+        }
     }
 }

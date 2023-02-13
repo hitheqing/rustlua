@@ -4,6 +4,7 @@ mod lua_state;
 mod arith_ops;
 mod math;
 mod cmp_ops;
+mod lua_table;
 
 use crate::binary::chunk::Prototype;
 pub use self::lua_state::LuaState;
